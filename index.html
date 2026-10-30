@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lexicon – Dictionary with Spell Checker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eaf0f6;--surface:#fff;--ink:#14213d;--muted:#5b6b86;--line:#cfd9e6;--mark:#f2b705;--markink:#3a2c00;--ok:#1b7a57;--okbg:#dcf3ea;--bad:#b3261e;--badbg:#fbe3e1;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1727;--surface:#17223a;--ink:#e8eefb;--muted:#9aaac6;--line:#2b3b5c;--mark:#f2b705;--markink:#2a2000;--ok:#5fd3a3;--okbg:#14382d;--bad:#ff8f86;--badbg:#431c1a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f1727;--surface:#17223a;--ink:#e8eefb;--muted:#9aaac6;--line:#2b3b5c;--mark:#f2b705;--markink:#2a2000;--ok:#5fd3a3;--okbg:#14382d;--bad:#ff8f86;--badbg:#431c1a;color-scheme:dark}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.55 "Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:1080px;margin:0 auto;padding:28px 20px 56px}
+header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:28px}
+h1{font:800 clamp(2rem,6vw,3.4rem)/1 "Bricolage Grotesque",Georgia,serif;margin:0 0 8px;letter-spacing:-.02em}
+h2{font:700 1.25rem/1.2 "Bricolage Grotesque",Georgia,serif;margin:0 0 12px}
+header p{margin:0;color:var(--muted);max-width:52ch}
+button{font:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--mark);outline-offset:2px}
+.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 12px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media (max-width:820px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px}
+.full{grid-column:1/-1}
+.search{display:flex;gap:10px}
+.search input{flex:1;min-width:0;font:600 1.6rem/1.2 "Bricolage Grotesque",Georgia,serif;padding:12px 14px;border:2px solid var(--ink);border-radius:10px;background:var(--surface);color:var(--ink)}
+.search button{background:var(--ink);color:var(--surface);border:0;border-radius:10px;padding:0 20px;font-weight:600}
+.verdict{margin:16px 0 4px;padding:12px 14px;border-radius:10px;font-weight:600}
+.verdict.ok{background:var(--okbg);color:var(--ok)}
+.verdict.bad{background:var(--badbg);color:var(--bad)}
+.verdict.idle{background:var(--bg);color:var(--muted);font-weight:400}
+.verdict small{display:block;font-weight:400;color:inherit;opacity:.9}
+.trie{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:14px 0 4px}
+.node{width:38px;height:38px;display:grid;place-items:center;border-radius:50%;font:700 1.05rem "Bricolage Grotesque",Georgia,serif;border:2px solid var(--line);color:var(--muted)}
+.node.hit{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.node.miss{background:var(--badbg);border-color:var(--bad);color:var(--bad)}
+.node.end{box-shadow:0 0 0 3px var(--surface),0 0 0 5px var(--ok)}
+.edge{color:var(--line)}
+.hint{color:var(--muted);font-size:.9rem;margin:6px 0 0}
+.sug{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.sug button{width:100%;display:flex;justify-content:space-between;align-items:center;background:var(--bg);border:2px solid transparent;border-radius:10px;padding:10px 14px;color:var(--ink);text-align:left}
+.sug button[aria-pressed="true"]{border-color:var(--mark)}
+.sug b{font:700 1.15rem "Bricolage Grotesque",Georgia,serif}
+.dist{font-size:.85rem;color:var(--muted)}
+.empty{color:var(--muted);margin:0}
+.scroll{overflow-x:auto;margin-top:14px}
+table.dp{border-collapse:separate;border-spacing:3px;margin:0 auto}
+.dp th{font:700 1rem "Bricolage Grotesque",Georgia,serif;width:34px;height:34px;color:var(--muted)}
+.dp td{width:34px;height:34px;text-align:center;border-radius:6px;background:var(--bg);font-variant-numeric:tabular-nums;font-size:.95rem}
+.dp td.path{background:var(--mark);color:var(--markink);font-weight:700}
+.dp td.res{outline:3px solid var(--ink)}
+textarea{width:100%;min-height:150px;resize:vertical;font:500 .95rem/1.5 ui-monospace,Menlo,Consolas,monospace;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.row .primary{background:var(--ink);color:var(--surface);border:0;border-radius:8px;padding:8px 16px;font-weight:600}
+.stats{color:var(--muted);font-size:.9rem}
+.msg{margin:10px 0 0;font-weight:600}
+.msg.ok{color:var(--ok)}
+.msg.bad{color:var(--bad)}
+.tbl{width:100%;border-collapse:collapse}
+.tbl th,.tbl td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{width:30%;font-weight:600}
+.tbl td{color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.chips button{background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:4px 12px;color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div>
+    <h1>Lexicon</h1>
+    <p>A dictionary with a spell checker. Words are stored in a trie, and suggestions are ranked by edit distance. Type a word and watch it work.</p>
+  </div>
+  <button class="ghost" id="theme" type="button">Switch theme</button>
+</header>
+
+<div class="grid">
+  <section class="panel" aria-labelledby="h-check">
+    <h2 id="h-check">Check a word</h2>
+    <div class="search">
+      <input id="q" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Try “appl” or “beutiful”" aria-label="Word to check">
+      <button id="go" type="button">Check</button>
+    </div>
+    <div id="verdict" class="verdict idle" role="status">Type a word to check it against the dictionary.</div>
+    <h2 style="margin-top:18px">Trie lookup</h2>
+    <div id="trie" class="trie" aria-label="Trie path"></div>
+    <p class="hint" id="trieHint">Each letter is one step down the trie. Green means the path exists; the ringed letter ends a stored word.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="h-sug">
+    <h2 id="h-sug">Did you mean</h2>
+    <div id="sugBox"><p class="empty">Suggestions appear here when a word isn’t found. Words within edit distance 2 are listed, closest first, up to 5.</p></div>
+  </section>
+
+  <section class="panel full" aria-labelledby="h-add">
+    <h2 id="h-add">Add a word</h2>
+    <div class="search">
+      <input id="nw" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Type a new word" aria-label="Word to add">
+      <button id="add" type="button">Add</button>
+    </div>
+    <div id="addMsg" class="msg" role="status"></div>
+    <p class="hint">New words go straight into the trie and are saved in this browser. Use “Download dictionary.txt” below to take your list to the C++ program.</p>
+  </section>
+
+  <section class="panel full" aria-labelledby="h-dp">
+    <h2 id="h-dp">Edit distance, step by step</h2>
+    <p class="hint" style="margin-top:0">Pick a suggestion to see how many insertions, deletions or replacements turn your word into it. The highlighted cells trace the cheapest route.</p>
+    <div class="scroll" id="dpBox"><p class="empty">No comparison yet.</p></div>
+  </section>
+
+  <section class="panel full" aria-labelledby="h-dict">
+    <h2 id="h-dict">Dictionary</h2>
+    <label for="words" class="hint" style="display:block;margin:0 0 8px">One word per line, letters a–z only. Edit the list, then load it into the trie.</label>
+    <textarea id="words"></textarea>
+    <div class="row">
+      <button class="primary" id="load" type="button">Load into trie</button>
+      <button class="ghost" id="download" type="button">Download dictionary.txt</button>
+      <button class="ghost" id="reset" type="button">Restore sample words</button>
+      <span class="stats" id="stats"></span>
+    </div>
+    <div class="chips" id="chips" aria-label="Quick tests"></div>
+  </section>
+
+  <section class="panel full" aria-labelledby="h-viva">
+    <h2 id="h-viva">Concepts behind it</h2>
+    <table class="tbl">
+      <tr><th>Trie</th><td>A tree where each step is a letter. Looking up a word costs one step per letter, no matter how big the dictionary is.</td></tr>
+      <tr><th>String matching</th><td>Comparing the typed word with stored words, letter by letter.</td></tr>
+      <tr><th>Edit distance</th><td>The fewest insertions, deletions and replacements needed to turn one word into another (Levenshtein distance), solved with a table of sub-answers.</td></tr>
+      <tr><th>Vector</th><td>The list of dictionary words kept alongside the trie so every word can be scored for suggestions.</td></tr>
+      <tr><th>File handling</th><td>The C++ program reads and appends to dictionary.txt; here the textarea above plays that role, and the browser remembers your list.</td></tr>
+      <tr><th>Sorting</th><td>Suggestions are ordered by distance, then alphabetically, so the closest word comes first.</td></tr>
+    </table>
+  </section>
+</div>
+</div>
+
+<script>
+var SAMPLE = "apple\napplication\nbanana\nbeautiful\ncomputer\nprogramming\ncollege\nstudent\ndictionary\nscience\nengineering\nhello\nworld\nfriend\neducation\nabout\nabove\nacross\naction\nactor\nafter\nagain\nagainst\nage\nagree\nair\nairport\nall\nalmost\nalone\nalong\nalready\nalways\namazing\namong\nanimal\nanswer\nany\nanyone\nappear\narea\nargue\narm\naround\narrive\nart\nask\nattack\naunt\nautumn\naway\nbaby\nback\nbad\nbag\nball\nbank\nbathroom\nbeach\nbear\nbeauty\nbecause\nbecome\nbed\nbefore\nbegin\nbehind\nbelieve\nbell\nbelow\nbest\nbetter\nbetween\nbicycle\nbig\nbird\nbirthday\nbit\nblack\nblue\nboard\nboat\nbody\nbook\nborder\nborn\nborrow\nboth\nbottle\nbowl\nboy\nbrain\nbread\nbreak\nbreakfast\nbridge\nbright\nbring\nbrother\nbrown\nbuild\nbuilding\nbusiness\nbusy\nbutter\nbuy\ncake\ncall\ncamera\ncan\ncandle\ncapital\ncar\ncard\ncare\ncarry\ncat\ncatch\ncentral\nchair\nchange\ncheap\ncheck\ncheese\nchicken\nchild\nchocolate\nchoose\nchurch\ncircle\ncity\nclass\nclean\nclear\nclimb\nclock\nclose\ncloud\ncoffee\ncold\ncolor\ncome\ncomfortable\ncommon\ncompany\ncomplete\ncook\ncool\ncorner\ncorrect\ncost\ncountry\ncourse\ncousin\ncreate\ncross\ncrowd\ncry\nculture\ncup\ncustomer\ndance\ndanger\ndark\ndaughter\nday\ndead\ndear\ndecide\ndeep\ndentist\ndesk\ndifferent\ndifficult\ndinner\ndirection\ndoctor\ndog\ndoor\ndown\ndream\ndress\ndrink\ndrive\ndry\nduck\nduring\neach\nearly\nearth\neast\neasy\neat\negg\neight\nelectric\nelephant\nempty\nend\nenergy\nenjoy\nenough\nenter\nequal\nevening\nevery\nexample\nexcellent\nexercise\nexpensive\nexplain\neye\nface\nfact\nfall\nfamily\nfamous\nfar\nfarm\nfast\nfather\nfavorite\nfeel\nfestival\nfew\nfield\nfight\nfill\nfilm\nfind\nfine\nfinger\nfinish\nfire\nfirst\nfish\nfive\nflag\nfloor\nflower\nfly\nfollow\nfood\nfoot\nforest\nforget\nfork\nforward\nfour\nfresh\nfriday\nfrom\nfront\nfruit\nfull\nfunny\nfuture\ngame\ngarden\ngate\ngentle\ngift\ngirl\ngive\nglass\ngo\ngoal\ngold\ngood\ngrammar\ngrandfather\ngrandmother\ngrass\ngreat\ngreen\nground\ngroup\ngrow\nguess\nguitar\nhair\nhalf\nhand\nhappy\nhard\nhat\nhave\nhead\nhealth\nhear\nheart\nheavy\nhelp\nhere\nhigh\nhill\nhistory\nhobby\nholiday\nhome\nhonest\nhorse\nhospital\nhot\nhotel\nhour\nhouse\nhowever\nhuman\nhundred\nhungry\nhusband\nice\nidea\nimportant\ninclude\ninformation\ninside\ninterest\ninternet\nisland\njacket\njob\njoin\njourney\njuice\njump\nkeep\nkey\nkind\nking\nkitchen\nknife\nknow\nlady\nlake\nlanguage\nlarge\nlast\nlate\nlaugh\nlearn\nleave\nleft\nleg\nlesson\nletter\nlibrary\nlife\nlight\nlike\nline\nlion\nlist\nlisten\nlittle\nlive\nlong\nlook\nlove\nlucky\nlunch\nmachine\nmagazine\nmake\nman\nmany\nmap\nmarket\nmarry\nmatter\nmeal\nmeasure\nmeat\nmedicine\nmeet\nmemory\nmessage\nmiddle\nmilk\nminute\nmirror\nmiss\nmodern\nmoment\nmonday\nmoney\nmonth\nmoon\nmorning\nmother\nmountain\nmouse\nmouth\nmove\nmovie\nmusic\nname\nnarrow\nnature\nnear\nnecessary\nneck\nneed\nneighbor\nnever\nnew\nnews\nnight\nnine\nnoise\nnorth\nnose\nnote\nnothing\nnumber\nocean\noffice\noften\noil\nold\nonce\none\nonly\nopen\nopposite\norange\norder\nother\noutside\npage\npaint\npaper\nparent\npark\nparty\npass\npast\npeace\npen\npeople\npepper\nperson\nphone\nphoto\npiano\npicture\npiece\npilot\nplace\nplan\nplant\nplay\nplease\npocket\npolice\npoor\npopular\npotato\npower\npractice\npretty\nprice\nprince\nproblem\nquestion\nquick\nquiet\nrabbit\nrain\nread\nready\nreally\nreason\nred\nremember\nrepeat\nrich\nride\nright\nriver\nroad\nroom\nround\nrule\nrun\nsad\nsafe\nsalt\nsame\nsand\nsaturday\nschool\nsea\nseason\nsecond\nsee\nsell\nsend\nsentence\nseven\nshirt\nshoe\nshop\nshort\nshow\nsick\nside\nsilver\nsimple\nsing\nsister\nsit\nsix\nsky\nsleep\nslow\nsmall\nsmile\nsnow\nsome\nson\nsong\nsoon\nsorry\nsound\nsoup\nsouth\nspace\nspeak\nspecial\nspell\nspend\nspoon\nsport\nspring\nsquare\nstand\nstar\nstart\nstation\nstay\nstop\nstore\nstory\nstreet\nstrong\nstudy\nsummer\nsun\nsunday\nsupper\nsure\nsweet\nswim\ntable\ntake\ntalk\ntall\ntea\nteacher\nteam\ntell\nten\ntest\nthank\ntheater\nthing\nthink\nthree\nthrow\nthursday\nticket\ntime\ntired\ntoday\ntogether\ntomorrow\ntonight\ntooth\ntop\ntown\ntrain\ntravel\ntree\ntrip\ntrue\ntry\ntuesday\nturn\ntwelve\ntwo\nuncle\nunder\nunderstand\nuntil\nuse\nusual\nvegetable\nvery\nvillage\nvisit\nvoice\nwait\nwalk\nwall\nwant\nwarm\nwash\nwatch\nwater\nweather\nwednesday\nweek\nwelcome\nwest\nwet\nwhat\nwhite\nwhy\nwide\nwife\nwind\nwindow\nwinter\nwise\nwish\nwoman\nwonder\nwood\nword\nwork\nwrite\nwrong\nyear\nyellow\nyesterday\nyoung\nzero\nzoo";
+var KEY = "lexicon-words";
+var root, words = [], nodeCount = 0, picked = null, current = "";
+var $ = function (id) { return document.getElementById(id); };
+
+function newNode() { nodeCount++; return { c: {}, end: false }; }
+function build(list) {
+  nodeCount = 0; root = newNode();
+  list.forEach(function (w) {
+    var n = root;
+    for (var i = 0; i < w.length; i++) {
+      if (!n.c[w[i]]) n.c[w[i]] = newNode();
+      n = n.c[w[i]];
+    }
+    n.end = true;
+  });
+}
+function parse(text) {
+  var seen = {}, out = [];
+  text.split(/\s+/).forEach(function (w) {
+    w = w.toLowerCase();
+    if (/^[a-z]+$/.test(w) && !seen[w]) { seen[w] = 1; out.push(w); }
+  });
+  return out;
+}
+function walk(word) {
+  var n = root, steps = [];
+  for (var i = 0; i < word.length; i++) {
+    var next = n && n.c[word[i]];
+    if (next) { steps.push({ ch: word[i], ok: true, end: next.end }); n = next; }
+    else { steps.push({ ch: word[i], ok: false }); n = null; }
+  }
+  return { steps: steps, found: !!(n && n.end) };
+}
+function matrix(a, b) {
+  var m = a.length, n = b.length, d = [], i, j;
+  for (i = 0; i <= m; i++) { d.push([]); for (j = 0; j <= n; j++) d[i].push(i === 0 ? j : j === 0 ? i : 0); }
+  for (i = 1; i <= m; i++) for (j = 1; j <= n; j++)
+    d[i][j] = a[i - 1] === b[j - 1] ? d[i - 1][j - 1] : 1 + Math.min(d[i - 1][j], d[i][j - 1], d[i - 1][j - 1]);
+  return d;
+}
+function trace(d, a, b) {
+  var i = a.length, j = b.length, p = {};
+  p[i + "," + j] = 1;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) { i--; j--; }
+    else {
+      var diag = i > 0 && j > 0 ? d[i - 1][j - 1] : 1e9, up = i > 0 ? d[i - 1][j] : 1e9, left = j > 0 ? d[i][j - 1] : 1e9;
+      var best = Math.min(diag, up, left);
+      if (best === diag) { i--; j--; } else if (best === up) i--; else j--;
+    }
+    p[i + "," + j] = 1;
+  }
+  return p;
+}
+function suggest(word) {
+  var out = [];
+  words.forEach(function (w) {
+    var dist = matrix(word, w)[word.length][w.length];
+    if (dist <= 2) out.push({ d: dist, w: w });
+  });
+  out.sort(function (x, y) { return x.d - y.d || (x.w < y.w ? -1 : 1); });
+  return out.slice(0, 5);
+}
+
+function esc(s) { return s.replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+
+function renderTrie(r) {
+  var h = "";
+  r.steps.forEach(function (s, i) {
+    if (i) h += '<span class="edge" aria-hidden="true">–</span>';
+    var cls = "node " + (s.ok ? "hit" : "miss") + (s.ok && s.end && i === r.steps.length - 1 ? " end" : "");
+    h += '<span class="' + cls + '">' + esc(s.ch) + "</span>";
+  });
+  $("trie").innerHTML = h;
+}
+
+function renderDP(a, b) {
+  var d = matrix(a, b), p = trace(d, a, b), h = '<table class="dp" aria-label="Edit distance table"><tr><th></th><th></th>';
+  for (var j = 0; j < b.length; j++) h += "<th>" + esc(b[j]) + "</th>";
+  h += "</tr>";
+  for (var i = 0; i <= a.length; i++) {
+    h += "<tr><th>" + (i ? esc(a[i - 1]) : "") + "</th>";
+    for (j = 0; j <= b.length; j++) {
+      var cls = (p[i + "," + j] ? "path" : "") + (i === a.length && j === b.length ? " res" : "");
+      h += '<td class="' + cls + '">' + d[i][j] + "</td>";
+    }
+    h += "</tr>";
+  }
+  $("dpBox").innerHTML = h + '</table><p class="hint" style="text-align:center">“' + esc(a) + "” → “" + esc(b) + "” = " + d[a.length][b.length] + " edit" + (d[a.length][b.length] === 1 ? "" : "s") + ".</p>";
+}
+
+function check() {
+  var w = $("q").value.trim().toLowerCase();
+  current = w; picked = null;
+  var v = $("verdict");
+  if (!w) {
+    v.className = "verdict idle"; v.textContent = "Type a word to check it against the dictionary.";
+    $("trie").innerHTML = ""; $("sugBox").innerHTML = '<p class="empty">Suggestions appear here when a word isn’t found.</p>';
+    $("dpBox").innerHTML = '<p class="empty">No comparison yet.</p>'; return;
+  }
+  if (!/^[a-z]+$/.test(w)) {
+    v.className = "verdict bad"; v.innerHTML = "Use letters a–z only.<small>The trie stores 26 letters per step, so digits, spaces and symbols can’t be looked up.</small>";
+    $("trie").innerHTML = ""; return;
+  }
+  var r = walk(w); renderTrie(r);
+  if (r.found) {
+    v.className = "verdict ok"; v.innerHTML = "Correct spelling.<small>“" + esc(w) + "” is in the dictionary.</small>";
+    $("sugBox").innerHTML = '<p class="empty">Nothing to suggest. The word is already correct.</p>';
+    $("dpBox").innerHTML = '<p class="empty">No comparison needed.</p>'; return;
+  }
+  var broke = r.steps.findIndex(function (s) { return !s.ok; });
+  v.className = "verdict bad";
+  v.innerHTML = "Incorrect spelling." + "<small>" + (broke < 0
+    ? "“" + esc(w) + "” is the start of a longer word, but isn’t a word itself."
+    : "The path stops at letter " + (broke + 1) + " (“" + esc(r.steps[broke].ch) + "”).") + "</small>";
+  var s = suggest(w);
+  if (!s.length) {
+    $("sugBox").innerHTML = '<p class="empty">No suggestions found within 2 edits.</p>';
+    $("dpBox").innerHTML = '<p class="empty">No comparison available.</p>'; return;
+  }
+  var h = '<ul class="sug">';
+  s.forEach(function (x, i) {
+    h += '<li><button type="button" data-w="' + x.w + '" aria-pressed="' + (i === 0) + '"><b>' + x.w + '</b><span class="dist">' + x.d + " edit" + (x.d === 1 ? "" : "s") + "</span></button></li>";
+  });
+  $("sugBox").innerHTML = h + "</ul>";
+  renderDP(w, s[0].w);
+}
+
+$("sugBox").addEventListener("click", function (e) {
+  var b = e.target.closest("button[data-w]"); if (!b) return;
+  [].forEach.call($("sugBox").querySelectorAll("button"), function (x) { x.setAttribute("aria-pressed", x === b); });
+  renderDP(current, b.getAttribute("data-w"));
+});
+
+function save() {
+  try { localStorage.setItem(KEY, words.join("\n")); } catch (e) {}
+}
+function load() {
+  words = parse($("words").value); build(words); save();
+  $("stats").textContent = words.length + " words, " + nodeCount + " trie nodes";
+  var pool = ["appl", "beutiful", "computer", "helo", "scienc", "freind"];
+  $("chips").innerHTML = '<span class="hint" style="margin:0">Try:</span>' + pool.map(function (t) { return '<button type="button" data-t="' + t + '">' + t + "</button>"; }).join("");
+  check();
+}
+function say(text, ok) { var m = $("addMsg"); m.className = "msg " + (ok ? "ok" : "bad"); m.textContent = text; }
+function addWord() {
+  var w = $("nw").value.trim().toLowerCase();
+  if (!w) { say("Type a word first.", false); return; }
+  if (!/^[a-z]+$/.test(w)) { say("Use letters a–z only (no spaces, digits or symbols).", false); return; }
+  if (words.indexOf(w) > -1) { say("“" + w + "” is already in the dictionary.", false); return; }
+  $("words").value = $("words").value.replace(/\s+$/, "") + "\n" + w;
+  load();
+  $("nw").value = "";
+  say("“" + w + "” was added to the dictionary.", true);
+}
+function download() {
+  var a = document.createElement("a"), url = URL.createObjectURL(new Blob([words.join("\n") + "\n"], { type: "text/plain" }));
+  a.href = url; a.download = "dictionary.txt"; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+}
+$("chips").addEventListener("click", function (e) {
+  var b = e.target.closest("button[data-t]"); if (!b) return;
+  $("q").value = b.getAttribute("data-t"); check(); window.scrollTo({ top: 0, behavior: "smooth" });
+});
+$("go").addEventListener("click", check);
+$("q").addEventListener("input", check);
+$("q").addEventListener("keydown", function (e) { if (e.key === "Enter") check(); });
+$("add").addEventListener("click", addWord);
+$("nw").addEventListener("keydown", function (e) { if (e.key === "Enter") addWord(); });
+$("load").addEventListener("click", load);
+$("download").addEventListener("click", download);
+$("reset").addEventListener("click", function () {
+  $("words").value = SAMPLE;
+  try { localStorage.removeItem(KEY); } catch (e) {}
+  load(); say("Sample words restored.", true);
+});
+$("theme").addEventListener("click", function () {
+  var el = document.documentElement, dark = el.getAttribute("data-theme") === "dark" ||
+    (!el.getAttribute("data-theme") && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  el.setAttribute("data-theme", dark ? "light" : "dark");
+});
+var saved = null;
+try { saved = localStorage.getItem(KEY); } catch (e) {}
+$("words").value = saved || SAMPLE; load();
+</script>
+</body>
+</html>
