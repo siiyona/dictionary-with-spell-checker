@@ -7,9 +7,24 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#eaf0f6;--surface:#fff;--ink:#14213d;--muted:#5b6b86;--line:#cfd9e6;--mark:#f2b705;--markink:#3a2c00;--ok:#1b7a57;--okbg:#dcf3ea;--bad:#b3261e;--badbg:#fbe3e1;color-scheme:light}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1727;--surface:#17223a;--ink:#e8eefb;--muted:#9aaac6;--line:#2b3b5c;--mark:#f2b705;--markink:#2a2000;--ok:#5fd3a3;--okbg:#14382d;--bad:#ff8f86;--badbg:#431c1a;color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#0f1727;--surface:#17223a;--ink:#e8eefb;--muted:#9aaac6;--line:#2b3b5c;--mark:#f2b705;--markink:#2a2000;--ok:#5fd3a3;--okbg:#14382d;--bad:#ff8f86;--badbg:#431c1a;color-scheme:dark}
+:root {
+    --bg: #F5EBDD;
+    --surface: #FFFCF6;
+    --ink: #49352B;
+    --muted: #8B7468;
+    --line: #E3D2C2;
+
+    --mark: #D8A0A0;
+    --markink: #4B2E32;
+
+    --ok: #6F8065;
+    --okbg: #E5EBDD;
+
+    --bad: #A65F5B;
+    --badbg: #F4E1DE;
+
+    color-scheme: light;
+}
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *,*::before,*::after{box-sizing:inherit}
@@ -75,7 +90,6 @@ textarea{width:100%;min-height:150px;resize:vertical;font:500 .95rem/1.5 ui-mono
     <h1>Lexicon</h1>
     <p>A dictionary with a spell checker. Words are stored in a trie, and suggestions are ranked by edit distance. Type a word and watch it work.</p>
   </div>
-  <button class="ghost" id="theme" type="button">Switch theme</button>
 </header>
 
 <div class="grid">
@@ -316,11 +330,6 @@ $("reset").addEventListener("click", function () {
   $("words").value = SAMPLE;
   try { localStorage.removeItem(KEY); } catch (e) {}
   load(); say("Sample words restored.", true);
-});
-$("theme").addEventListener("click", function () {
-  var el = document.documentElement, dark = el.getAttribute("data-theme") === "dark" ||
-    (!el.getAttribute("data-theme") && window.matchMedia("(prefers-color-scheme: dark)").matches);
-  el.setAttribute("data-theme", dark ? "light" : "dark");
 });
 var saved = null;
 try { saved = localStorage.getItem(KEY); } catch (e) {}
